@@ -1,1 +1,4 @@
 print("My name is Nino")
+
+for i in range (5): 
+    print(i)
