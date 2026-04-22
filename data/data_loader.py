@@ -1,5 +1,3 @@
-# Can otehrs see tis?????
-
 import pandas as pd
 
 # Load the Excel file
