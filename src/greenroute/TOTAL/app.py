@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="GreenRoute💊", page_icon="💊", layout="wide")
+st.set_page_config(page_title="GreenRoute", page_icon="💊", layout="wide")
 
 st.markdown("""
 <style>
@@ -15,7 +15,7 @@ div[data-testid="stMarkdownContainer"] p {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("GreenRoute")
+st.title("GreenRoute💊")
 st.write("Pharmaceutical Synthesis Comparator")
 st.divider()
 
@@ -59,6 +59,7 @@ for i, mol in enumerate(molecules):
         label = f"{mol}\n{formulas[mol]}"
         if st.button(label, key=mol, use_container_width=False):
             st.session_state.selected = mol
+            
 
 if "selected" in st.session_state:
     st.divider()
