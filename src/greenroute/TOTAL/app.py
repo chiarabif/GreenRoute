@@ -59,7 +59,6 @@ for i, mol in enumerate(molecules):
         label = f"{mol}\n{formulas[mol]}"
         if st.button(label, key=mol, use_container_width=False):
             st.session_state.selected = mol
-            
 
 if "selected" in st.session_state:
     st.divider()
