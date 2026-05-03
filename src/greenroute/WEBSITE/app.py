@@ -183,7 +183,7 @@ left, center, right = st.columns([2.4, 2, 2.4])
 
 with center:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=400)
+        st.image(str(LOGO_PATH), width=2000)
     else:
         st.title("GreenRoute 🌱")
 
