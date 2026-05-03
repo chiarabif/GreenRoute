@@ -1,0 +1,11 @@
+drug_name,route_id,route_name,target_product,atom_economy_percent,pmi,e_factor,overall_yield_percent,overall_yield_percent_from_steps,number_of_steps,step_penalty,average_hazard_score,recommended_solvents_count,problematic_solvents_count,hazardous_solvents_count,overall_solvent_profile,pmi_calc_status,efactor_calc_status
+Ibuprofen,IBU_BHC_3STEP,BHC / Hoechst-Celanese 3-step ibuprofen route,Ibuprofen,77.45,10.24,9.24,52.1,52.13,3,0.8574,3.33,0,0,0,,ok,ok
+Ibuprofen,IBU_FLOW_JG2015,Jolliffe-Gerogiorgis continuous-flow ibuprofen route,Ibuprofen,28.54,486.59,485.59,88.29,88.29,3,0.8574,2.82,3,0,0,Recommended,ok,ok
+Artemisinin,R1,Cook 2012,(+)-Artemisinin,10.51,459.08,458.08,9.0,8.91,5,0.7738,2.31,2,1,0,Problematic,ok,ok
+Artemisinin,R2,Yadav 2010,(+)-Artemisinin,10.69,447025.71,447024.71,0.5,0.52,10,0.5987,2.23,1,2,0,Problematic,ok,ok
+Artemisinin,R3,Roche/Schmid 1983,(+)-Artemisinin (Qinghaosu),4.98,6.0,5.0,3.0,3.19,10,0.5987,2.6,0,3,0,Problematic,ok,ok
+Artemisinin,R4,Sanofi semi-synthetic 2010,(+)-Artemisinin,20.26,2.2,1.2,40.0,40.97,5,0.7738,1.61,1,0,0,Recommended,ok,ok
+Sitagliptin,SITA_MERCK_2GEN,Merck 2nd-generation sitagliptin process,Sitagliptin phosphate monohydrate,73.97,,,67.5,67.5,5,0.7738,3.0,0,0,0,,Missing/invalid yield at step 2,Missing/invalid yield at step 2
+Sitagliptin,SITA_MERCK_3GEN,Merck/Codexis 3rd-generation biocatalytic sitagliptin process,Sitagliptin phosphate monohydrate,90.01,1.51,0.51,76.28,76.28,2,0.9025,1.6,0,0,0,,ok,ok
+Sertraline,SERT_PFIZER_GREEN,Pfizer greener commercial sertraline route (continuous chromatography + improved downstream process),Sertraline hydrochloride,95.02,1.74,0.74,74.64,74.64,4,0.8145,2.5,4,1,0,Problematic,ok,ok
+Sertraline,SERT_MARX_CHEMOENZ,Marx chemoenzymatic sertraline route (KRED + NaOCl/AZADO + methylamine/NaBH4),Sertraline,61.92,11.26,10.26,16.0,16.0,3,0.8574,2.33,1,1,0,Problematic,ok,ok

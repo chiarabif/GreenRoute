@@ -24,6 +24,11 @@ def clean_routes_df(routes_df: pd.DataFrame) -> pd.DataFrame:
         "Number_of_Steps",
         "Overall_Yield_%",
         "Final_Product_Mass_Isolated_g",
+        "App_Atom_Economy_%",
+        "App_PMI",
+        "App_E_factor",
+        "App_Overall_Yield_%",
+        "App_Number_of_Steps",
     ]
 
     for col in numeric_cols:
