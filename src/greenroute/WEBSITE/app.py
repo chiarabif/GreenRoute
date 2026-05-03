@@ -1,66 +1,25 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+from textwrap import dedent
 
 st.set_page_config(page_title="GreenRoute", page_icon="🌱", layout="wide")
 
-# -------------------------
-# PATHS
-# -------------------------
+# Paths
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parents[2]
 LOGO_PATH = BASE_DIR / "greenroute-logo.png"
 RESULTS_PATH = PROJECT_ROOT / "data" / "results" / "calculated_green_metrics.csv"
+SMILES_IMAGE_DIR = PROJECT_ROOT / "SRC" / "greenroute" / "SMILES"
 
-# -------------------------
-# PAGE STYLE
-# -------------------------
+# Page style
 st.markdown(
     """
     <style>
     .block-container {
-        max-width: 1200px;
+        max-width: 1300px;
         padding-top: 1.5rem;
         padding-bottom: 2rem;
-    }
-
-    div.stButton > button {
-        width: 380px;
-        height: 210px;
-        margin: 18px auto;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        white-space: pre-line;
-        font-size: 22px;
-        font-weight: 500;
-        padding: 1rem;
-        line-height: 1.5;
-        border-radius: 18px;
-        border: 1.5px solid #DCEEDC;
-        background-color: #FFFFFF;
-        box-shadow: 0 6px 18px rgba(46, 125, 50, 0.08);
-        transition: all 0.2s ease;
-        color: #2E2E2E;
-    }
-
-    div.stButton > button:hover {
-        border-color: #2E7D32;
-        background-color: #F4FAF4;
-        transform: translateY(-3px);
-        box-shadow: 0 10px 24px rgba(46, 125, 50, 0.18);
-    }
-
-    div.stButton > button:active {
-        transform: translateY(0px);
-        background-color: #E8F5E9;
-    }
-
-    div.stButton > button::first-line {
-        font-weight: 700;
-        font-size: 26px;
-        color: #2E7D32;
     }
 
     .subtitle {
@@ -72,23 +31,142 @@ st.markdown(
 
     .section-title {
         text-align: center;
+        font-weight: 700;
+        font-size: 28px;
+        margin-top: 1.2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .molecule-card {
+        background: #FFFFFF;
+        border: 1.5px solid #E2E8E2;
+        border-radius: 24px;
+        padding: 30px 32px 26px 32px;
+        min-height: 300px;
+        box-shadow: 0 8px 24px rgba(46, 125, 50, 0.08);
+        transition: all 0.2s ease;
+        margin-bottom: 14px;
+    }
+
+    .molecule-card:hover {
+        border-color: #2E7D32;
+        box-shadow: 0 12px 30px rgba(46, 125, 50, 0.16);
+        transform: translateY(-3px);
+    }
+
+    .molecule-title {
+        font-size: 31px;
+        font-weight: 750;
+        color: #20232A;
+        margin-bottom: 4px;
+    }
+
+    .molecule-formula {
+        font-size: 18px;
+        color: #6A6A6A;
+        font-weight: 650;
+        letter-spacing: 0.8px;
+        margin-bottom: 22px;
+    }
+
+    .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .tag {
+        display: inline-block;
+        padding: 8px 15px;
+        border-radius: 999px;
+        font-size: 15px;
         font-weight: 600;
-        font-size: 22px;
-        margin-top: 0.3rem;
-        margin-bottom: 0.7rem;
+        line-height: 1;
+    }
+
+    .tag-green {
+        background: #E4F1DF;
+        color: #2E7D32;
+    }
+
+    .tag-muted {
+        background: #F0EEE8;
+        color: #6D6659;
+    }
+
+    .metric-label {
+        font-size: 18px;
+        color: #3D3D3D;
+        margin-bottom: 9px;
+    }
+
+    .progress-track {
+        width: 100%;
+        height: 12px;
+        background: #F0EEE8;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .progress-fill-green {
+        height: 100%;
+        background: #1FA37A;
+        border-radius: 999px;
+    }
+
+    .progress-fill-orange {
+        height: 100%;
+        background: #E39A27;
+        border-radius: 999px;
+    }
+
+    .progress-value {
+        text-align: right;
+        font-size: 17px;
+        color: #6A6A6A;
+        font-weight: 650;
+        margin-top: 7px;
+    }
+
+    div.stButton > button {
+        width: 100%;
+        height: 48px;
+        border-radius: 16px;
+        border: 1.5px solid #DCEEDC;
+        background-color: #F7FBF7;
+        color: #2E7D32;
+        font-size: 17px;
+        font-weight: 700;
+        margin-top: 6px;
+        transition: all 0.2s ease;
+    }
+
+    div.stButton > button:hover {
+        border-color: #2E7D32;
+        background-color: #EEF7EE;
+        color: #245D28;
+        box-shadow: 0 6px 16px rgba(46, 125, 50, 0.14);
+    }
+
+    .image-caption {
+        text-align: center;
+        color: #6A6A6A;
+        font-size: 14px;
+        margin-top: -8px;
+        margin-bottom: 24px;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# -------------------------
-# LOAD RESULTS
-# -------------------------
+# Load results
 @st.cache_data
 def load_results(csv_path: Path) -> pd.DataFrame:
     if not csv_path.exists():
         return pd.DataFrame()
+
     df = pd.read_csv(csv_path)
 
     if "drug_name" in df.columns:
@@ -99,25 +177,23 @@ def load_results(csv_path: Path) -> pd.DataFrame:
 
 results_df = load_results(RESULTS_PATH)
 
-# -------------------------
-# HEADER
-# -------------------------
+# Header
 left, center, right = st.columns([2.4, 2, 2.4])
+
 with center:
     if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=400)
+        st.image(str(LOGO_PATH), width=2000)
     else:
         st.title("GreenRoute 🌱")
 
 st.markdown(
     "<p class='subtitle'>Pharmaceutical Synthesis Comparator</p>",
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
+
 st.divider()
 
-# -------------------------
-# MOLECULE DATA
-# -------------------------
+# Molecule data
 molecules = ["Ibuprofen", "Artemisinin", "Sitagliptin", "Sertraline"]
 
 formulas = {
@@ -127,62 +203,234 @@ formulas = {
     "Sertraline": "C₁₇H₁₇Cl₂N",
 }
 
-# -------------------------
-# MOLECULE SELECTOR
-# -------------------------
+# Molecule image files
+molecule_image_files = {
+    "Ibuprofen": "ibuprofen.png",
+    "Artemisinin": "artemisinin.png",
+    "Sitagliptin": "sitagliptin.png",
+    "Sertraline": "sertraline.png",
+}
+
+
+def get_molecule_image_path(molecule: str):
+    image_name = molecule_image_files.get(molecule)
+
+    if image_name is None:
+        return None
+
+    image_path = SMILES_IMAGE_DIR / image_name
+
+    if image_path.exists():
+        return image_path
+
+    return None
+
+
+# Card data
+def get_molecule_summary(molecule: str) -> dict:
+    if results_df.empty or "drug_name" not in results_df.columns:
+        return {
+            "pathways": None,
+            "best_atom_economy": None,
+        }
+
+    mol_df = results_df[
+        results_df["drug_name"].astype(str).str.lower() == molecule.lower()
+    ]
+
+    if mol_df.empty:
+        return {
+            "pathways": 0,
+            "best_atom_economy": None,
+        }
+
+    if "route_name" in mol_df.columns:
+        pathways = mol_df["route_name"].dropna().nunique()
+    else:
+        pathways = len(mol_df)
+
+    if "atom_economy_percent" in mol_df.columns:
+        best_atom_economy = mol_df["atom_economy_percent"].max()
+    else:
+        best_atom_economy = None
+
+    return {
+        "pathways": pathways,
+        "best_atom_economy": best_atom_economy,
+    }
+
+
+def render_tags(summary: dict) -> str:
+    tags = []
+
+    if summary["pathways"] is None:
+        tags.append('<span class="tag tag-muted">No results file</span>')
+    elif summary["pathways"] == 0:
+        tags.append('<span class="tag tag-muted">No pathways available</span>')
+    elif summary["pathways"] == 1:
+        tags.append('<span class="tag tag-green">1 pathway</span>')
+    else:
+        tags.append(f'<span class="tag tag-green">{summary["pathways"]} pathways</span>')
+
+    return '<div class="tag-row">' + "".join(tags) + '</div>'
+
+
+def render_molecule_card(molecule: str) -> str:
+    summary = get_molecule_summary(molecule)
+    best_atom_economy = summary["best_atom_economy"]
+
+    if best_atom_economy is not None and pd.notna(best_atom_economy):
+        metric_value = float(best_atom_economy)
+        progress_width = max(0, min(metric_value, 100))
+        value_text = f"{metric_value:.0f}%"
+        bar_class = "progress-fill-green" if metric_value >= 70 else "progress-fill-orange"
+    else:
+        progress_width = 0
+        value_text = "—"
+        bar_class = "progress-fill-orange"
+
+    html = f"""
+<div class="molecule-card">
+    <div class="molecule-title">{molecule}</div>
+    <div class="molecule-formula">{formulas[molecule]}</div>
+    {render_tags(summary)}
+    <div class="metric-label">Best atom economy</div>
+    <div class="progress-track">
+        <div class="{bar_class}" style="width:{progress_width}%;"></div>
+    </div>
+    <div class="progress-value">{value_text}</div>
+</div>
+"""
+    return dedent(html).strip()
+
+
+# Molecule selection
 st.markdown("<div class='section-title'>Choose a molecule</div>", unsafe_allow_html=True)
 
-outer = st.columns([1, 3, 1, 3, 1])
+row1 = st.columns(2, gap="large")
+row2 = st.columns(2, gap="large")
 
-for i, mol in enumerate(molecules):
-    with outer[1 if i % 2 == 0 else 3]:
-        label = f"{mol}\n{formulas[mol]}"
-        if st.button(label, key=mol):
-            st.session_state.selected = mol
+card_layout = [
+    ("Ibuprofen", row1[0]),
+    ("Sitagliptin", row1[1]),
+    ("Artemisinin", row2[0]),
+    ("Sertraline", row2[1]),
+]
 
-# -------------------------
-# DISPLAY RESULTS
-# -------------------------
+for molecule, column in card_layout:
+    with column:
+        st.markdown(render_molecule_card(molecule), unsafe_allow_html=True)
+
+        if st.button(f"Select {molecule}", key=f"select_{molecule}"):
+            st.session_state.selected = molecule
+
+# Selected molecule
 selected = st.session_state.get("selected", None)
 
 if selected:
     st.divider()
     st.success(f"You selected: **{selected}**")
 
+    molecule_image_path = get_molecule_image_path(selected)
+
+    if molecule_image_path is not None:
+        st.markdown("### Molecular structure")
+
+        image_left, image_center, image_right = st.columns([1.4, 2.2, 1.4])
+
+        with image_center:
+            st.image(str(molecule_image_path), use_container_width=True)
+
+        st.markdown(
+            f"<p class='image-caption'>{selected} molecular structure</p>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info("No molecular structure image available yet.")
+
     if results_df.empty:
         st.warning("No results file found yet. Run the metrics pipeline first.")
         st.stop()
 
-    mol_df = results_df[results_df["drug_name"].str.lower() == selected.lower()].copy()
+    if "drug_name" not in results_df.columns:
+        st.error("The results file does not contain a 'drug_name' column.")
+        st.stop()
+
+    mol_df = results_df[
+        results_df["drug_name"].astype(str).str.lower() == selected.lower()
+    ].copy()
 
     if mol_df.empty:
         st.info("No computed pathways available yet for this molecule.")
         st.stop()
 
-    # -------------------------
-    # TOP SUMMARY
-    # -------------------------
-    best_ae = mol_df["atom_economy_percent"].max() if "atom_economy_percent" in mol_df.columns else None
-    best_pmi = mol_df["pmi"].min() if "pmi" in mol_df.columns else None
-    best_ef = mol_df["e_factor"].min() if "e_factor" in mol_df.columns else None
-    best_yield = (
-        mol_df["overall_yield_percent_from_summary"].max()
-        if "overall_yield_percent_from_summary" in mol_df.columns else None
+    # Best pathway rows
+    best_ae_row = (
+        mol_df.loc[mol_df["atom_economy_percent"].idxmax()]
+        if "atom_economy_percent" in mol_df.columns
+        and mol_df["atom_economy_percent"].notna().any()
+        else None
     )
 
+    best_pmi_row = (
+        mol_df.loc[mol_df["pmi"].idxmin()]
+        if "pmi" in mol_df.columns
+        and mol_df["pmi"].notna().any()
+        else None
+    )
+
+    best_ef_row = (
+        mol_df.loc[mol_df["e_factor"].idxmin()]
+        if "e_factor" in mol_df.columns
+        and mol_df["e_factor"].notna().any()
+        else None
+    )
+
+    best_yield_row = (
+        mol_df.loc[mol_df["overall_yield_percent_from_summary"].idxmax()]
+        if "overall_yield_percent_from_summary" in mol_df.columns
+        and mol_df["overall_yield_percent_from_summary"].notna().any()
+        else None
+    )
+
+    # Summary metrics
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Best atom economy", f"{best_ae:.2f}%" if pd.notna(best_ae) else "—")
-    c2.metric("Lowest PMI", f"{best_pmi:.2f}" if pd.notna(best_pmi) else "—")
-    c3.metric("Lowest E-factor", f"{best_ef:.2f}" if pd.notna(best_ef) else "—")
-    c4.metric("Best overall yield", f"{best_yield:.2f}%" if pd.notna(best_yield) else "—")
+
+    c1.metric(
+        "Best atom economy",
+        f"{best_ae_row['atom_economy_percent']:.2f}%" if best_ae_row is not None else "—",
+    )
+    if best_ae_row is not None:
+        c1.caption(best_ae_row["route_name"])
+
+    c2.metric(
+        "Lowest PMI",
+        f"{best_pmi_row['pmi']:.2f}" if best_pmi_row is not None else "—",
+    )
+    if best_pmi_row is not None:
+        c2.caption(best_pmi_row["route_name"])
+
+    c3.metric(
+        "Lowest E-factor",
+        f"{best_ef_row['e_factor']:.2f}" if best_ef_row is not None else "—",
+    )
+    if best_ef_row is not None:
+        c3.caption(best_ef_row["route_name"])
+
+    c4.metric(
+        "Best overall yield",
+        f"{best_yield_row['overall_yield_percent_from_summary']:.2f}%"
+        if best_yield_row is not None
+        else "—",
+    )
+    if best_yield_row is not None:
+        c4.caption(best_yield_row["route_name"])
 
     st.caption("Higher atom economy and yield are better. Lower PMI and E-factor are better.")
 
     st.divider()
 
-    # -------------------------
-    # COMPARISON TABLE
-    # -------------------------
+    # Comparison table
     st.markdown("<div class='section-title'>Pathway comparison</div>", unsafe_allow_html=True)
 
     display_cols = [
@@ -196,7 +444,7 @@ if selected:
         "overall_solvent_profile",
     ]
 
-    display_cols = [c for c in display_cols if c in mol_df.columns]
+    display_cols = [col for col in display_cols if col in mol_df.columns]
     table_df = mol_df[display_cols].copy()
 
     rename_map = {
@@ -209,16 +457,111 @@ if selected:
         "average_hazard_score": "Hazard score",
         "overall_solvent_profile": "Solvent profile",
     }
+
     table_df = table_df.rename(columns=rename_map)
 
-    st.dataframe(table_df, use_container_width=True, hide_index=True)
+    numeric_cols = [
+        "Atom economy (%)",
+        "PMI",
+        "E-factor",
+        "Overall yield (%)",
+        "Steps",
+        "Hazard score",
+    ]
+
+    for col in numeric_cols:
+        if col in table_df.columns:
+            table_df[col] = pd.to_numeric(table_df[col], errors="coerce")
+
+    def highlight_best_worst(series, higher_is_better=True):
+        styles = [""] * len(series)
+
+        valid = series.dropna()
+
+        if valid.empty:
+            return styles
+
+        best_value = valid.max() if higher_is_better else valid.min()
+        worst_value = valid.min() if higher_is_better else valid.max()
+
+        for i, value in enumerate(series):
+            if pd.isna(value):
+                styles[i] = "background-color: #F5F5F5; color: #9E9E9E;"
+            elif value == best_value:
+                styles[i] = "background-color: #E8F5E9; color: #1B5E20; font-weight: 700;"
+            elif value == worst_value and best_value != worst_value:
+                styles[i] = "background-color: #FFF3E0; color: #E65100; font-weight: 600;"
+            else:
+                styles[i] = ""
+
+        return styles
+
+    styled_table = table_df.style.format(
+        {
+            "Atom economy (%)": "{:.2f}",
+            "PMI": "{:.2f}",
+            "E-factor": "{:.2f}",
+            "Overall yield (%)": "{:.2f}",
+            "Steps": "{:.0f}",
+            "Hazard score": "{:.2f}",
+        },
+        na_rep="—",
+    )
+
+    if "Atom economy (%)" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["Atom economy (%)"],
+            higher_is_better=True,
+        )
+
+    if "PMI" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["PMI"],
+            higher_is_better=False,
+        )
+
+    if "E-factor" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["E-factor"],
+            higher_is_better=False,
+        )
+
+    if "Overall yield (%)" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["Overall yield (%)"],
+            higher_is_better=True,
+        )
+
+    if "Steps" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["Steps"],
+            higher_is_better=False,
+        )
+
+    if "Hazard score" in table_df.columns:
+        styled_table = styled_table.apply(
+            highlight_best_worst,
+            subset=["Hazard score"],
+            higher_is_better=False,
+        )
+
+    st.dataframe(styled_table, use_container_width=True, hide_index=True)
+
+    st.caption("Green = better value for that metric. Orange = less favorable value. Grey = unavailable value.")
 
     st.divider()
 
-    # -------------------------
-    # DETAILED ROUTE VIEW
-    # -------------------------
+    # Route inspection
     st.markdown("<div class='section-title'>Inspect one pathway</div>", unsafe_allow_html=True)
+
+    if "route_name" not in mol_df.columns:
+        st.warning("No route names found in the results file.")
+        st.stop()
 
     route_names = mol_df["route_name"].dropna().tolist()
     selected_route_name = st.selectbox("Select a pathway", route_names)
@@ -231,43 +574,92 @@ if selected:
         st.metric(
             "Atom economy",
             f"{route_row['atom_economy_percent']:.2f}%"
-            if pd.notna(route_row.get("atom_economy_percent")) else "—"
+            if "atom_economy_percent" in route_row and pd.notna(route_row.get("atom_economy_percent"))
+            else "—",
         )
+
         st.metric(
             "PMI",
             f"{route_row['pmi']:.2f}"
-            if pd.notna(route_row.get("pmi")) else "—"
+            if "pmi" in route_row and pd.notna(route_row.get("pmi"))
+            else "—",
         )
 
     with d2:
         st.metric(
             "E-factor",
             f"{route_row['e_factor']:.2f}"
-            if pd.notna(route_row.get("e_factor")) else "—"
+            if "e_factor" in route_row and pd.notna(route_row.get("e_factor"))
+            else "—",
         )
+
         st.metric(
             "Overall yield",
             f"{route_row['overall_yield_percent_from_summary']:.2f}%"
-            if pd.notna(route_row.get("overall_yield_percent_from_summary")) else "—"
+            if "overall_yield_percent_from_summary" in route_row
+            and pd.notna(route_row.get("overall_yield_percent_from_summary"))
+            else "—",
         )
 
     with d3:
         st.metric(
             "Steps",
             f"{int(route_row['number_of_steps'])}"
-            if pd.notna(route_row.get("number_of_steps")) else "—"
+            if "number_of_steps" in route_row and pd.notna(route_row.get("number_of_steps"))
+            else "—",
         )
+
         st.metric(
             "Hazard score",
             f"{route_row['average_hazard_score']:.2f}"
-            if pd.notna(route_row.get("average_hazard_score")) else "—"
+            if "average_hazard_score" in route_row and pd.notna(route_row.get("average_hazard_score"))
+            else "—",
         )
 
-    st.markdown("#### Solvent profile")
-    st.write(route_row.get("overall_solvent_profile", "—"))
+    solvent_profile = route_row.get("overall_solvent_profile", "—")
 
-    st.markdown("#### Route name")
-    st.write(route_row.get("route_name", "—"))
+if pd.isna(solvent_profile):
+    solvent_profile = "Unavailable"
 
-    with st.expander("Show raw data for this pathway"):
+profile_lower = str(solvent_profile).lower()
+
+if "recommended" in profile_lower:
+    display_profile = "Highly recoverable"
+    badge_color = "#E8F5E9"
+    text_color = "#1B5E20"
+elif "problematic" in profile_lower:
+    display_profile = "Polluting / difficult to recover"
+    badge_color = "#FFEBEE"
+    text_color = "#B71C1C"
+elif "moderate" in profile_lower or "mixed" in profile_lower:
+    display_profile = "Moderate environmental impact"
+    badge_color = "#FFF3E0"
+    text_color = "#E65100"
+else:
+    display_profile = "Unavailable"
+    badge_color = "#F0F0F0"
+    text_color = "#666666"
+
+st.markdown(
+    f"""
+    <div style="margin-top: 20px;">
+        <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
+            Solvent impact
+        </div>
+        <span style="
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 999px;
+            background-color: {badge_color};
+            color: {text_color};
+            font-weight: 700;
+        ">
+            {display_profile}
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.expander("Show raw data for this pathway"):
         st.json(route_row.to_dict())
