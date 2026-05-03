@@ -52,18 +52,26 @@ def main():
         "route_id",
         "route_name",
         "target_product",
-        "atom_economy_percent",
-        "pmi",
-        "e_factor",
-        "overall_yield_percent_from_summary",
-        "overall_yield_percent_from_steps",
-        "number_of_steps",
-        "step_penalty",
+        "display_atom_economy_percent",
+        "display_pmi",
+        "display_e_factor",
+        "display_overall_yield_percent",
+        "display_number_of_steps",
         "average_hazard_score",
         "recommended_solvents_count",
         "problematic_solvents_count",
         "hazardous_solvents_count",
         "overall_solvent_profile",
+        "app_value_source",
+        "calculation_basis",
+        "data_confidence",
+        "app_notes",
+        "calculated_atom_economy_percent",
+        "calculated_pmi",
+        "calculated_e_factor",
+        "calculated_stepwise_yield_percent",
+        "pmi_calc_status",
+        "efactor_calc_status",
     ]
     results_df = results_df[[col for col in preferred_order if col in results_df.columns]]
 
@@ -80,17 +88,13 @@ def main():
         results_df.to_excel(excel_output_path, index=False)
         print("\nSaved Excel results to:", excel_output_path)
     except PermissionError:
-        print(
-            f"\nCould not save Excel file because it is open or locked:\n{excel_output_path}"
-        )
+        print(f"\nCould not save Excel file because it is open or locked:\n{excel_output_path}")
 
     try:
         results_df.to_csv(csv_output_path, index=False)
         print("Saved CSV results to:", csv_output_path)
     except PermissionError:
-        print(
-            f"\nCould not save CSV file because it is open or locked:\n{csv_output_path}"
-        )
+        print(f"\nCould not save CSV file because it is open or locked:\n{csv_output_path}")
 
 
 if __name__ == "__main__":

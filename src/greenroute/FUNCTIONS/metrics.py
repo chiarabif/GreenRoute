@@ -1,44 +1,29 @@
-import pandas as pd
-from pathlib import Path
-
 from collections import Counter
 
 
 def atom_economy(product_mass, reactant_mass):
-    """
-    Calculate atom economy as a percentage.
-    """
-    if reactant_mass == 0:
-        raise ValueError("Reactant mass cannot be zero")
+    if reactant_mass <= 0:
+        raise ValueError("Reactant mass must be > 0")
     return 100 * product_mass / reactant_mass
 
 
 def e_factor(waste_mass, product_mass):
-    """
-    Calculate E-factor.
-    """
-    if product_mass == 0:
-        raise ValueError("Product mass cannot be zero")
+    if product_mass <= 0:
+        raise ValueError("Product mass must be > 0")
     return waste_mass / product_mass
 
 
 def pmi(total_input_mass, product_mass):
-    """
-    Calculate Process Mass Intensity (PMI).
-    """
-    if product_mass == 0:
-        raise ValueError("Product mass cannot be zero")
+    if product_mass <= 0:
+        raise ValueError("Product mass must be > 0")
     return total_input_mass / product_mass
 
 
 def overall_yield(yields):
-    """
-    Calculate overall yield from a list of step yields expressed as fractions.
-    """
     if not yields:
         raise ValueError("Yields list cannot be empty")
     if any(y <= 0 or y > 1 for y in yields):
-        raise ValueError("Each yield must be between 0 (exclusive) and 1 (inclusive)")
+        raise ValueError("Each yield must be between 0 and 1")
     result = 1.0
     for y in yields:
         result *= y
@@ -46,9 +31,6 @@ def overall_yield(yields):
 
 
 def step_penalty(num_steps, penalty_per_step=0.05):
-    """
-    Penalize long routes.
-    """
     if num_steps < 1:
         raise ValueError("Number of steps must be at least 1")
     if not (0 < penalty_per_step < 1):
@@ -104,76 +86,137 @@ def average_hazard_score(hazard_scores):
     return sum(valid_scores) / len(valid_scores)
 
 
-def calculate_route_metrics(route):
-    """
-    Calculate all green metrics for a Route object.
-    Returns a flat dictionary suitable for DataFrame export.
-    """
+def _group_material_masses_by_step(route, include_attr_name):
+    step_input_masses = {}
+    for material in route.materials:
+        include_flag = getattr(material, include_attr_name, False)
+        if include_flag and material.amount_g is not None:
+            step_no = int(material.step_number)
+            step_input_masses[step_no] = step_input_masses.get(step_no, 0.0) + float(material.amount_g)
+    return step_input_masses
 
-    # ---------------------------
-    # Atom economy
-    # ---------------------------
+
+def _compute_required_step_output_masses(route):
+    if not route.steps:
+        return None, None, "No steps available"
+
+    steps = sorted(route.steps, key=lambda s: s.step_number)
+    final_step = steps[-1]
+
+    if final_step.desired_product_mw is None or final_step.desired_product_mw <= 0:
+        return None, None, "Final step MW missing"
+
+    if route.final_product_mass_isolated_g is not None and route.final_product_mass_isolated_g > 0:
+        final_basis_mass = float(route.final_product_mass_isolated_g)
+    elif final_step.product_mass_isolated_g is not None and final_step.product_mass_isolated_g > 0:
+        final_basis_mass = float(final_step.product_mass_isolated_g)
+    else:
+        final_basis_mass = float(route.final_product_mw) if route.final_product_mw is not None else None
+
+    if final_basis_mass is None or final_basis_mass <= 0:
+        return None, None, "Final basis mass missing"
+
+    required_output_mass = {}
+    required_output_moles = {}
+
+    required_output_mass[final_step.step_number] = final_basis_mass
+    required_output_moles[final_step.step_number] = final_basis_mass / float(final_step.desired_product_mw)
+
+    for idx in range(len(steps) - 1, 0, -1):
+        current_step = steps[idx]
+        previous_step = steps[idx - 1]
+
+        if current_step.step_yield_percent is None or current_step.step_yield_percent <= 0:
+            return None, None, f"Missing/invalid yield at step {current_step.step_number}"
+
+        if previous_step.desired_product_mw is None or previous_step.desired_product_mw <= 0:
+            return None, None, f"Missing MW at step {previous_step.step_number}"
+
+        current_yield = float(current_step.step_yield_percent) / 100.0
+        previous_required_moles = required_output_moles[current_step.step_number] / current_yield
+
+        required_output_moles[previous_step.step_number] = previous_required_moles
+        required_output_mass[previous_step.step_number] = previous_required_moles * float(previous_step.desired_product_mw)
+
+    return required_output_mass, final_basis_mass, None
+
+
+def _compute_scaled_route_pmi_or_efactor(route, include_attr_name):
+    steps = sorted(route.steps, key=lambda s: s.step_number)
+    if not steps:
+        return None, None, "No steps available"
+
+    step_input_masses = _group_material_masses_by_step(route, include_attr_name)
+    required_output_masses, final_basis_mass, err = _compute_required_step_output_masses(route)
+
+    if err is not None:
+        return None, None, err
+
+    total_scaled_input_mass = 0.0
+
+    for step in steps:
+        step_no = int(step.step_number)
+
+        if step_no not in step_input_masses:
+            continue
+
+        if step.product_mass_isolated_g is None or step.product_mass_isolated_g <= 0:
+            return None, None, f"Missing isolated product mass at step {step_no}"
+
+        raw_step_input_mass = float(step_input_masses[step_no])
+        raw_step_output_mass = float(step.product_mass_isolated_g)
+
+        step_intensity = raw_step_input_mass / raw_step_output_mass
+        scaled_step_input_mass = step_intensity * required_output_masses[step_no]
+        total_scaled_input_mass += scaled_step_input_mass
+
+    return total_scaled_input_mass, final_basis_mass, None
+
+
+def calculate_route_metrics(route):
+    # Debug calculations
     ae_materials = [
         m for m in route.materials
         if m.include_in_atom_economy and m.molar_mass is not None and m.stoich_coeff is not None
     ]
-    total_reactant_mass_ae = sum(m.molar_mass * m.stoich_coeff for m in ae_materials)
+    total_reactant_mass_ae = sum(float(m.molar_mass) * float(m.stoich_coeff) for m in ae_materials)
 
-    atom_economy_value = None
+    calculated_atom_economy = None
     if route.final_product_mw is not None and total_reactant_mass_ae > 0:
-        atom_economy_value = atom_economy(route.final_product_mw, total_reactant_mass_ae)
+        calculated_atom_economy = atom_economy(float(route.final_product_mw), total_reactant_mass_ae)
 
-    # ---------------------------
-    # PMI
-    # ---------------------------
-    pmi_materials = [
-        m for m in route.materials
-        if m.include_in_pmi and m.amount_g is not None
-    ]
-    total_input_mass = sum(m.amount_g for m in pmi_materials)
+    scaled_pmi_input_mass, pmi_basis_mass, pmi_err = _compute_scaled_route_pmi_or_efactor(route, "include_in_pmi")
+    calculated_pmi = None
+    if pmi_err is None and scaled_pmi_input_mass is not None and pmi_basis_mass is not None:
+        calculated_pmi = pmi(scaled_pmi_input_mass, pmi_basis_mass)
 
-    pmi_value = None
-    if route.final_product_mass_isolated_g is not None and route.final_product_mass_isolated_g > 0:
-        pmi_value = pmi(total_input_mass, route.final_product_mass_isolated_g)
+    scaled_ef_input_mass, ef_basis_mass, ef_err = _compute_scaled_route_pmi_or_efactor(route, "include_in_efactor")
+    calculated_e_factor = None
+    if ef_err is None and scaled_ef_input_mass is not None and ef_basis_mass is not None:
+        waste_mass = scaled_ef_input_mass - ef_basis_mass
+        calculated_e_factor = e_factor(waste_mass, ef_basis_mass)
 
-    # ---------------------------
-    # E-factor
-    # ---------------------------
-    ef_materials = [
-        m for m in route.materials
-        if m.include_in_efactor and m.amount_g is not None
-    ]
-    total_efactor_input_mass = sum(m.amount_g for m in ef_materials)
-
-    e_factor_value = None
-    if route.final_product_mass_isolated_g is not None and route.final_product_mass_isolated_g > 0:
-        waste_mass = total_efactor_input_mass - route.final_product_mass_isolated_g
-        e_factor_value = e_factor(waste_mass, route.final_product_mass_isolated_g)
-
-    # ---------------------------
-    # Overall yield
-    # ---------------------------
     step_yield_values = [
-        step.step_yield_percent / 100
+        float(step.step_yield_percent) / 100.0
         for step in route.steps
         if step.step_yield_percent is not None
     ]
-
-    computed_overall_yield = None
+    calculated_stepwise_yield = None
     if step_yield_values:
-        computed_overall_yield = overall_yield(step_yield_values) * 100
+        calculated_stepwise_yield = overall_yield(step_yield_values) * 100.0
 
-    # ---------------------------
-    # Steps and penalty
-    # ---------------------------
-    num_steps = route.number_of_steps if route.number_of_steps is not None else len(route.steps)
-    step_penalty_value = step_penalty(num_steps) if num_steps else None
+    # Final display values: App_* first, calculated fallback second
+    final_atom_economy = route.app_atom_economy_percent if route.app_atom_economy_percent is not None else calculated_atom_economy
+    final_pmi = route.app_pmi if route.app_pmi is not None else calculated_pmi
+    final_e_factor = route.app_e_factor if route.app_e_factor is not None else calculated_e_factor
+    final_overall_yield = route.app_overall_yield_percent if route.app_overall_yield_percent is not None else route.overall_yield_percent
+    final_num_steps = int(route.app_number_of_steps) if route.app_number_of_steps is not None else (
+        int(route.number_of_steps) if route.number_of_steps is not None else len(route.steps)
+    )
 
-    # ---------------------------
-    # Solvent summary (flattened)
-    # ---------------------------
+    step_penalty_value = step_penalty(final_num_steps) if final_num_steps else None
+
     solvent_materials = [m for m in route.materials if m.role and m.role.lower() == "solvent"]
-
     solvent_results = []
     for m in solvent_materials:
         try:
@@ -197,30 +240,37 @@ def calculate_route_metrics(route):
     else:
         overall_solvent_profile = None
 
-    # ---------------------------
-    # Hazard summary
-    # ---------------------------
     hazard_values = [m.hazard_score for m in route.materials]
     avg_hazard = average_hazard_score(hazard_values)
 
-    # ---------------------------
-    # Rounded flat results
-    # ---------------------------
     return {
         "drug_name": route.drug_name,
         "route_id": route.route_id,
         "route_name": route.route_name,
         "target_product": route.target_product,
-        "atom_economy_percent": round(atom_economy_value, 2) if atom_economy_value is not None else None,
-        "pmi": round(pmi_value, 2) if pmi_value is not None else None,
-        "e_factor": round(e_factor_value, 2) if e_factor_value is not None else None,
-        "overall_yield_percent_from_summary": round(route.overall_yield_percent, 2) if route.overall_yield_percent is not None else None,
-        "overall_yield_percent_from_steps": round(computed_overall_yield, 2) if computed_overall_yield is not None else None,
-        "number_of_steps": num_steps,
-        "step_penalty": round(step_penalty_value, 4) if step_penalty_value is not None else None,
+
+        "display_atom_economy_percent": round(final_atom_economy, 2) if final_atom_economy is not None else None,
+        "display_pmi": round(final_pmi, 2) if final_pmi is not None else None,
+        "display_e_factor": round(final_e_factor, 2) if final_e_factor is not None else None,
+        "display_overall_yield_percent": round(final_overall_yield, 2) if final_overall_yield is not None else None,
+        "display_number_of_steps": final_num_steps,
+
         "average_hazard_score": round(avg_hazard, 2) if avg_hazard is not None else None,
         "recommended_solvents_count": recommended_count,
         "problematic_solvents_count": problematic_count,
         "hazardous_solvents_count": hazardous_count,
         "overall_solvent_profile": overall_solvent_profile,
+
+        "calculated_atom_economy_percent": round(calculated_atom_economy, 2) if calculated_atom_economy is not None else None,
+        "calculated_pmi": round(calculated_pmi, 2) if calculated_pmi is not None else None,
+        "calculated_e_factor": round(calculated_e_factor, 2) if calculated_e_factor is not None else None,
+        "calculated_stepwise_yield_percent": round(calculated_stepwise_yield, 2) if calculated_stepwise_yield is not None else None,
+
+        "app_value_source": route.app_value_source,
+        "calculation_basis": route.calculation_basis,
+        "data_confidence": route.data_confidence,
+        "app_notes": route.app_notes,
+
+        "pmi_calc_status": "ok" if pmi_err is None else pmi_err,
+        "efactor_calc_status": "ok" if ef_err is None else ef_err,
     }

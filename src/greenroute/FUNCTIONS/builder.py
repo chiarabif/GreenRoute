@@ -56,11 +56,20 @@ def build_route(route_id: str, routes_df: pd.DataFrame, steps_df: pd.DataFrame, 
         final_product_mw=route_row["Final_Product_MW"] if pd.notna(route_row["Final_Product_MW"]) else None,
         number_of_steps=int(route_row["Number_of_Steps"]) if pd.notna(route_row["Number_of_Steps"]) else None,
         overall_yield_percent=route_row["Overall_Yield_%"] if pd.notna(route_row["Overall_Yield_%"]) else None,
-        final_product_mass_isolated_g=route_row["Final_Product_Mass_Isolated_g"]
-        if pd.notna(route_row["Final_Product_Mass_Isolated_g"])
-        else None,
-        source_or_reference=route_row["Source_or_Reference"] if pd.notna(route_row["Source_or_Reference"]) else None,
-        notes=route_row["Notes"] if pd.notna(route_row["Notes"]) else None,
+        final_product_mass_isolated_g=route_row["Final_Product_Mass_Isolated_g"] if pd.notna(route_row["Final_Product_Mass_Isolated_g"]) else None,
+
+        app_atom_economy_percent=route_row["App_Atom_Economy_%"] if "App_Atom_Economy_%" in route_row.index and pd.notna(route_row["App_Atom_Economy_%"]) else None,
+        app_pmi=route_row["App_PMI"] if "App_PMI" in route_row.index and pd.notna(route_row["App_PMI"]) else None,
+        app_e_factor=route_row["App_E_factor"] if "App_E_factor" in route_row.index and pd.notna(route_row["App_E_factor"]) else None,
+        app_overall_yield_percent=route_row["App_Overall_Yield_%"] if "App_Overall_Yield_%" in route_row.index and pd.notna(route_row["App_Overall_Yield_%"]) else None,
+        app_number_of_steps=int(route_row["App_Number_of_Steps"]) if "App_Number_of_Steps" in route_row.index and pd.notna(route_row["App_Number_of_Steps"]) else None,
+        app_value_source=route_row["App_Value_Source"] if "App_Value_Source" in route_row.index and pd.notna(route_row["App_Value_Source"]) else None,
+        calculation_basis=route_row["Calculation_Basis"] if "Calculation_Basis" in route_row.index and pd.notna(route_row["Calculation_Basis"]) else None,
+        data_confidence=route_row["Data_Confidence"] if "Data_Confidence" in route_row.index and pd.notna(route_row["Data_Confidence"]) else None,
+        app_notes=route_row["App_Notes"] if "App_Notes" in route_row.index and pd.notna(route_row["App_Notes"]) else None,
+
+        source_or_reference=route_row["Source_or_Reference"] if "Source_or_Reference" in route_row.index and pd.notna(route_row["Source_or_Reference"]) else None,
+        notes=route_row["Notes"] if "Notes" in route_row.index and pd.notna(route_row["Notes"]) else None,
         steps=steps,
         materials=materials,
     )

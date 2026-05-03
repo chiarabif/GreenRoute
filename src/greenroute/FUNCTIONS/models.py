@@ -45,6 +45,17 @@ class Route:
     number_of_steps: Optional[int]
     overall_yield_percent: Optional[float]
     final_product_mass_isolated_g: Optional[float]
+
+    app_atom_economy_percent: Optional[float] = None
+    app_pmi: Optional[float] = None
+    app_e_factor: Optional[float] = None
+    app_overall_yield_percent: Optional[float] = None
+    app_number_of_steps: Optional[int] = None
+    app_value_source: Optional[str] = None
+    calculation_basis: Optional[str] = None
+    data_confidence: Optional[str] = None
+    app_notes: Optional[str] = None
+
     source_or_reference: Optional[str] = None
     notes: Optional[str] = None
     steps: list[Step] = field(default_factory=list)
