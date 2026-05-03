@@ -107,7 +107,7 @@ def average_hazard_score(hazard_scores):
 def calculate_route_metrics(route):
     """
     Calculate all green metrics for a Route object.
-    Returns a dictionary of results.
+    Returns a flat dictionary suitable for DataFrame export.
     """
 
     # ---------------------------
@@ -119,9 +119,8 @@ def calculate_route_metrics(route):
     ]
     total_reactant_mass_ae = sum(m.molar_mass * m.stoich_coeff for m in ae_materials)
 
-    if route.final_product_mw is None:
-        atom_economy_value = None
-    else:
+    atom_economy_value = None
+    if route.final_product_mw is not None and total_reactant_mass_ae > 0:
         atom_economy_value = atom_economy(route.final_product_mw, total_reactant_mass_ae)
 
     # ---------------------------
@@ -133,9 +132,8 @@ def calculate_route_metrics(route):
     ]
     total_input_mass = sum(m.amount_g for m in pmi_materials)
 
-    if route.final_product_mass_isolated_g is None:
-        pmi_value = None
-    else:
+    pmi_value = None
+    if route.final_product_mass_isolated_g is not None and route.final_product_mass_isolated_g > 0:
         pmi_value = pmi(total_input_mass, route.final_product_mass_isolated_g)
 
     # ---------------------------
@@ -147,9 +145,8 @@ def calculate_route_metrics(route):
     ]
     total_efactor_input_mass = sum(m.amount_g for m in ef_materials)
 
-    if route.final_product_mass_isolated_g is None:
-        e_factor_value = None
-    else:
+    e_factor_value = None
+    if route.final_product_mass_isolated_g is not None and route.final_product_mass_isolated_g > 0:
         waste_mass = total_efactor_input_mass - route.final_product_mass_isolated_g
         e_factor_value = e_factor(waste_mass, route.final_product_mass_isolated_g)
 
@@ -167,13 +164,13 @@ def calculate_route_metrics(route):
         computed_overall_yield = overall_yield(step_yield_values) * 100
 
     # ---------------------------
-    # Step count and penalty
+    # Steps and penalty
     # ---------------------------
     num_steps = route.number_of_steps if route.number_of_steps is not None else len(route.steps)
     step_penalty_value = step_penalty(num_steps) if num_steps else None
 
     # ---------------------------
-    # Solvent summary
+    # Solvent summary (flattened)
     # ---------------------------
     solvent_materials = [m for m in route.materials if m.role and m.role.lower() == "solvent"]
 
@@ -185,7 +182,20 @@ def calculate_route_metrics(route):
             continue
 
     solvent_categories = [s["category"] for s in solvent_results]
-    solvent_summary = dict(Counter(solvent_categories)) if solvent_categories else {}
+    solvent_counts = Counter(solvent_categories)
+
+    recommended_count = solvent_counts.get("Recommended", 0)
+    problematic_count = solvent_counts.get("Problematic", 0)
+    hazardous_count = solvent_counts.get("Hazardous", 0)
+
+    if hazardous_count > 0:
+        overall_solvent_profile = "Hazardous"
+    elif problematic_count > 0:
+        overall_solvent_profile = "Problematic"
+    elif recommended_count > 0:
+        overall_solvent_profile = "Recommended"
+    else:
+        overall_solvent_profile = None
 
     # ---------------------------
     # Hazard summary
@@ -193,19 +203,24 @@ def calculate_route_metrics(route):
     hazard_values = [m.hazard_score for m in route.materials]
     avg_hazard = average_hazard_score(hazard_values)
 
+    # ---------------------------
+    # Rounded flat results
+    # ---------------------------
     return {
         "drug_name": route.drug_name,
         "route_id": route.route_id,
         "route_name": route.route_name,
         "target_product": route.target_product,
-        "atom_economy_percent": atom_economy_value,
-        "pmi": pmi_value,
-        "e_factor": e_factor_value,
-        "overall_yield_percent_from_summary": route.overall_yield_percent,
-        "overall_yield_percent_from_steps": computed_overall_yield,
+        "atom_economy_percent": round(atom_economy_value, 2) if atom_economy_value is not None else None,
+        "pmi": round(pmi_value, 2) if pmi_value is not None else None,
+        "e_factor": round(e_factor_value, 2) if e_factor_value is not None else None,
+        "overall_yield_percent_from_summary": round(route.overall_yield_percent, 2) if route.overall_yield_percent is not None else None,
+        "overall_yield_percent_from_steps": round(computed_overall_yield, 2) if computed_overall_yield is not None else None,
         "number_of_steps": num_steps,
-        "step_penalty": step_penalty_value,
-        "average_hazard_score": avg_hazard,
-        "solvent_summary": solvent_summary,
-        "solvent_details": solvent_results,
+        "step_penalty": round(step_penalty_value, 4) if step_penalty_value is not None else None,
+        "average_hazard_score": round(avg_hazard, 2) if avg_hazard is not None else None,
+        "recommended_solvents_count": recommended_count,
+        "problematic_solvents_count": problematic_count,
+        "hazardous_solvents_count": hazardous_count,
+        "overall_solvent_profile": overall_solvent_profile,
     }
