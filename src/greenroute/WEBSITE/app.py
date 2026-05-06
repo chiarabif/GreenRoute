@@ -11,6 +11,7 @@ PROJECT_ROOT = BASE_DIR.parents[2]
 LOGO_PATH = BASE_DIR / "greenroute-logo.png"
 RESULTS_PATH = PROJECT_ROOT / "data" / "results" / "calculated_green_metrics.csv"
 SMILES_IMAGE_DIR = PROJECT_ROOT / "SRC" / "greenroute" / "SMILES"
+REACTION_IMAGE_DIR = PROJECT_ROOT / "SRC" / "greenroute" / "REACTIONS"
 
 # Page style
 st.markdown(
@@ -222,6 +223,49 @@ def get_molecule_image_path(molecule: str):
 
     if image_path.exists():
         return image_path
+
+    return None
+
+
+# Reaction scheme files
+def get_reaction_scheme_path(route_name: str):
+    route_name_lower = str(route_name).lower()
+
+    route_image_map = {
+        "boots": "ibuprofen_boots.png",
+        "bhc": "ibuprofen_bhc.png",
+        "hoechst": "ibuprofen_bhc.png",
+        "celanese": "ibuprofen_bhc.png",
+        "flow": "ibuprofen_flow.png",
+        "continuous-flow": "ibuprofen_flow.png",
+        "continuous flow": "ibuprofen_flow.png",
+        "jolliffe": "ibuprofen_flow.png",
+        "jollife": "ibuprofen_flow.png",
+        "gerogiorgis": "ibuprofen_flow.png",
+        "gerogiorg": "ibuprofen_flow.png",
+        "Jollife-Gerogiorgis":"ibuprofen_flow.png",
+
+        "pfizer": "sertraline_pfizer.png",
+        "marx": "sertraline_marx.png",
+
+        "2nd": "sitagliptin_merck_2nd_gen.png",
+        "second": "sitagliptin_merck_2nd_gen.png",
+        "3rd": "sitagliptin_merck_3rd_gen.png",
+        "third": "sitagliptin_merck_3rd_gen.png",
+
+        "cook": "artemisinin_cook.png",
+        "yadav": "artemisinin_yadav.png",
+        "roche": "artemisinin_roche_schmid.png",
+        "schmid": "artemisinin_roche_schmid.png",
+        "sanofi": "artemisinin_sanofi.png",
+    }
+
+    for keyword, filename in route_image_map.items():
+        if keyword in route_name_lower:
+            image_path = REACTION_IMAGE_DIR / filename
+
+            if image_path.exists():
+                return image_path
 
     return None
 
@@ -475,7 +519,6 @@ if selected:
 
     def highlight_best_worst(series, higher_is_better=True):
         styles = [""] * len(series)
-
         valid = series.dropna()
 
         if valid.empty:
@@ -568,6 +611,21 @@ if selected:
 
     route_row = mol_df[mol_df["route_name"] == selected_route_name].iloc[0]
 
+    reaction_scheme_path = get_reaction_scheme_path(selected_route_name)
+
+    if reaction_scheme_path is not None:
+        st.markdown("### Reaction scheme")
+
+        scheme_left, scheme_center, scheme_right = st.columns([1.2, 2, 1.2])
+
+        with scheme_center:
+            st.image(str(reaction_scheme_path), use_container_width=True)
+
+    else:
+        st.info("No reaction scheme image available for this pathway yet.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     d1, d2, d3 = st.columns(3)
 
     with d1:
@@ -616,50 +674,51 @@ if selected:
             else "—",
         )
 
+    # Solvent impact
     solvent_profile = route_row.get("overall_solvent_profile", "—")
 
-if pd.isna(solvent_profile):
-    solvent_profile = "Unavailable"
+    if pd.isna(solvent_profile):
+        solvent_profile = "Unavailable"
 
-profile_lower = str(solvent_profile).lower()
+    profile_lower = str(solvent_profile).lower()
 
-if "recommended" in profile_lower:
-    display_profile = "Highly recoverable"
-    badge_color = "#E8F5E9"
-    text_color = "#1B5E20"
-elif "problematic" in profile_lower:
-    display_profile = "Polluting / difficult to recover"
-    badge_color = "#FFEBEE"
-    text_color = "#B71C1C"
-elif "moderate" in profile_lower or "mixed" in profile_lower:
-    display_profile = "Moderate environmental impact"
-    badge_color = "#FFF3E0"
-    text_color = "#E65100"
-else:
-    display_profile = "Unavailable"
-    badge_color = "#F0F0F0"
-    text_color = "#666666"
+    if "recommended" in profile_lower:
+        display_profile = "Highly recoverable"
+        badge_color = "#E8F5E9"
+        text_color = "#1B5E20"
+    elif "problematic" in profile_lower:
+        display_profile = "Polluting / difficult to recover"
+        badge_color = "#FFEBEE"
+        text_color = "#B71C1C"
+    elif "moderate" in profile_lower or "mixed" in profile_lower:
+        display_profile = "Moderate environmental impact"
+        badge_color = "#FFF3E0"
+        text_color = "#E65100"
+    else:
+        display_profile = "Unavailable"
+        badge_color = "#F0F0F0"
+        text_color = "#666666"
 
-st.markdown(
-    f"""
-    <div style="margin-top: 20px;">
-        <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
-            Solvent impact
+    st.markdown(
+        f"""
+        <div style="margin-top: 20px;">
+            <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
+                Solvent impact
+            </div>
+            <span style="
+                display: inline-block;
+                padding: 8px 16px;
+                border-radius: 999px;
+                background-color: {badge_color};
+                color: {text_color};
+                font-weight: 700;
+            ">
+                {display_profile}
+            </span>
         </div>
-        <span style="
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 999px;
-            background-color: {badge_color};
-            color: {text_color};
-            font-weight: 700;
-        ">
-            {display_profile}
-        </span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
 
-with st.expander("Show raw data for this pathway"):
+    with st.expander("Show raw data for this pathway"):
         st.json(route_row.to_dict())
