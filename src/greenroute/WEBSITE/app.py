@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from pathlib import Path
 from textwrap import dedent
 
@@ -598,6 +599,80 @@ if selected:
     st.dataframe(styled_table, use_container_width=True, hide_index=True)
 
     st.caption("Green = better value for that metric. Orange = less favorable value. Grey = unavailable value.")
+
+    # Spider chart
+    radar_metrics = {
+        "Atom economy (%)": True,
+        "Overall yield (%)": True,
+        "PMI": False,
+        "E-factor": False,
+        "Steps": False,
+        "Hazard score": False,
+    }
+
+    radar_cols = [m for m in radar_metrics if m in table_df.columns]
+
+    if len(radar_cols) >= 3:
+        raw_df = table_df[["Pathway"] + radar_cols].copy()
+        for col in radar_cols:
+            raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
+
+        RADAR_MIN = 0.15
+        norm_df = raw_df.copy()
+        for col in radar_cols:
+            col_vals = raw_df[col]
+            col_min, col_max = col_vals.min(), col_vals.max()
+            if col_max == col_min:
+                norm_df[col] = 1.0
+            elif radar_metrics[col]:
+                norm_df[col] = RADAR_MIN + (1 - RADAR_MIN) * (col_vals - col_min) / (col_max - col_min)
+            else:
+                norm_df[col] = RADAR_MIN + (1 - RADAR_MIN) * (1 - (col_vals - col_min) / (col_max - col_min))
+
+        categories = radar_cols + [radar_cols[0]]
+        dark_colors = ["#2E7D32", "#1565C0", "#E65100", "#6A1B9A", "#B71C1C", "#00695C"]
+        colors = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#F44336", "#00BCD4"]
+
+        fig = go.Figure()
+
+        for idx, (i, norm_row) in enumerate(norm_df.iterrows()):
+            raw_row = raw_df.loc[i]
+            norm_vals = [norm_row[c] if pd.notna(norm_row[c]) else None for c in radar_cols]
+            raw_vals = [raw_row[c] for c in radar_cols]
+            norm_vals_closed = norm_vals + [norm_vals[0]]
+
+            hover_lines = [
+                f"{c}: <b>{rv:.2f}</b>" if pd.notna(rv) else f"{c}: <b>N/A</b>"
+                for c, rv in zip(radar_cols, raw_vals)
+            ]
+            hover_text = "<br>".join(hover_lines)
+            dark_color = dark_colors[idx % len(dark_colors)]
+
+            fig.add_trace(go.Scatterpolar(
+                r=norm_vals_closed,
+                theta=categories,
+                fill="none",
+                name=norm_row["Pathway"],
+                mode="lines+markers",
+                line=dict(color=dark_color, width=2.5),
+                marker=dict(size=6, color=dark_color),
+                hovertemplate=f"<b>{norm_row['Pathway']}</b><br>{hover_text}<extra></extra>",
+            ))
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=False),
+                angularaxis=dict(tickfont=dict(size=12)),
+            ),
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
+            margin=dict(t=60, b=100, l=80, r=80),
+            height=520,
+        )
+
+        st.markdown("<div class='section-title'>Pathway radar chart</div>", unsafe_allow_html=True)
+        st.caption("Hover over a point to see the actual values. The shape is scaled so all routes stay visible — outer edge = relatively better.")
+        st.plotly_chart(fig, use_container_width=True, key="radar_chart")
 
     st.divider()
 
