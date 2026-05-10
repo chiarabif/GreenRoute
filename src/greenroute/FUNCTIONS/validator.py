@@ -1,114 +1,171 @@
 import pandas as pd
 
 
-def validate_route_ids(routes_df: pd.DataFrame, steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
+def validate_required_columns(df: pd.DataFrame, required_columns: list[str], table_name: str) -> list[str]:
     """
-    Check that all Route_ID values in Step_Data and Materials exist in Route_Summary.
-    Ignore blank rows.
+    Check that a table contains all the columns it is supposed to have.
+
+    Returns a list of error messages. If the list is empty, the table has
+    all the required columns.
+    """
+    missing = [col for col in required_columns if col not in df.columns]
+    if not missing:
+        return []
+    return [f"{table_name}: missing required columns {missing}"]
+
+
+def validate_no_missing_route_ids(routes_df: pd.DataFrame, steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
+    """
+    Check that every table has a Route_ID and that no Route_ID is missing.
     """
     errors = []
+
+    for table_name, df in [
+        ("Route_Summary", routes_df),
+        ("Step_Data", steps_df),
+        ("Materials", materials_df),
+    ]:
+        if "Route_ID" not in df.columns:
+            errors.append(f"{table_name}: Route_ID column is missing")
+            continue
+
+        if df["Route_ID"].isna().any():
+            errors.append(f"{table_name}: some Route_ID values are missing")
+
+    return errors
+
+
+def validate_step_links(routes_df: pd.DataFrame, steps_df: pd.DataFrame) -> list[str]:
+    """
+    Check that every step refers to a route that exists in Route_Summary.
+    """
+    errors = []
+
+    if "Route_ID" not in routes_df.columns or "Route_ID" not in steps_df.columns:
+        return errors
 
     valid_route_ids = set(routes_df["Route_ID"].dropna().astype(str))
     step_route_ids = set(steps_df["Route_ID"].dropna().astype(str))
+
+    unknown_ids = sorted(step_route_ids - valid_route_ids)
+    if unknown_ids:
+        errors.append(f"Step_Data: unknown Route_ID values {unknown_ids}")
+
+    return errors
+
+
+def validate_material_links(routes_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
+    """
+    Check that every material row refers to a route that exists in Route_Summary.
+    """
+    errors = []
+
+    if "Route_ID" not in routes_df.columns or "Route_ID" not in materials_df.columns:
+        return errors
+
+    valid_route_ids = set(routes_df["Route_ID"].dropna().astype(str))
     material_route_ids = set(materials_df["Route_ID"].dropna().astype(str))
 
-    missing_from_steps = step_route_ids - valid_route_ids
-    missing_from_materials = material_route_ids - valid_route_ids
-
-    if missing_from_steps:
-        errors.append(
-            f"Route_ID(s) in Step_Data missing from Route_Summary: {sorted(missing_from_steps)}"
-        )
-
-    if missing_from_materials:
-        errors.append(
-            f"Route_ID(s) in Materials missing from Route_Summary: {sorted(missing_from_materials)}"
-        )
+    unknown_ids = sorted(material_route_ids - valid_route_ids)
+    if unknown_ids:
+        errors.append(f"Materials: unknown Route_ID values {unknown_ids}")
 
     return errors
 
 
-def validate_step_links(steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
+def validate_final_step_per_route(steps_df: pd.DataFrame) -> list[str]:
     """
-    Check that every (Route_ID, Step_Number) pair in Materials exists in Step_Data.
-    Ignore blank rows where Route_ID or Step_Number is missing.
+    Check that each route has exactly one final step.
     """
     errors = []
 
-    clean_steps = steps_df.dropna(subset=["Route_ID", "Step_Number"]).copy()
-    clean_materials = materials_df.dropna(subset=["Route_ID", "Step_Number"]).copy()
+    if "Route_ID" not in steps_df.columns or "Final_Step_YN" not in steps_df.columns:
+        return errors
 
-    valid_steps = set(
-        zip(
-            clean_steps["Route_ID"].astype(str),
-            clean_steps["Step_Number"].astype(int)
-        )
+    final_counts = (
+        steps_df.groupby("Route_ID", dropna=True)["Final_Step_YN"]
+        .sum()
     )
 
-    material_steps = set(
-        zip(
-            clean_materials["Route_ID"].astype(str),
-            clean_materials["Step_Number"].astype(int)
-        )
-    )
-
-    missing_steps = material_steps - valid_steps
-
-    if missing_steps:
-        errors.append(
-            f"(Route_ID, Step_Number) pair(s) in Materials missing from Step_Data: {sorted(missing_steps)}"
-        )
+    for route_id, count in final_counts.items():
+        if count != 1:
+            errors.append(f"Step_Data: route {route_id} has {int(count)} final steps instead of 1")
 
     return errors
 
-def validate_metric_inputs(materials_df: pd.DataFrame) -> list[str]:
+
+def validate_positive_step_numbers(steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
     """
-    Check that rows included in each metric have the required data.
+    Check that step numbers are present and positive in the step and material tables.
     """
     errors = []
 
-    # Atom economy requires Molar_Mass and Stoich_Coeff
-    ae_rows = materials_df.loc[materials_df["Include_in_Atom_Economy"] == True]
-    bad_ae = ae_rows.loc[ae_rows["Molar_Mass"].isna() | ae_rows["Stoich_Coeff"].isna()]
+    for table_name, df in [("Step_Data", steps_df), ("Materials", materials_df)]:
+        if "Step_Number" not in df.columns:
+            errors.append(f"{table_name}: Step_Number column is missing")
+            continue
 
-    if not bad_ae.empty:
-        for _, row in bad_ae.iterrows():
-            errors.append(
-                f"Atom economy input missing for Route_ID={row['Route_ID']}, "
-                f"Step={row['Step_Number']}, Material={row['Material_Name']}"
-            )
-
-    # PMI requires Amount_g
-    pmi_rows = materials_df.loc[materials_df["Include_in_PMI"] == True]
-    bad_pmi = pmi_rows.loc[pmi_rows["Amount_g"].isna()]
-
-    if not bad_pmi.empty:
-        for _, row in bad_pmi.iterrows():
-            errors.append(
-                f"PMI input missing Amount_g for Route_ID={row['Route_ID']}, "
-                f"Step={row['Step_Number']}, Material={row['Material_Name']}"
-            )
-
-    # E-factor requires Amount_g
-    ef_rows = materials_df.loc[materials_df["Include_in_Efactor"] == True]
-    bad_ef = ef_rows.loc[ef_rows["Amount_g"].isna()]
-
-    if not bad_ef.empty:
-        for _, row in bad_ef.iterrows():
-            errors.append(
-                f"E-factor input missing Amount_g for Route_ID={row['Route_ID']}, "
-                f"Step={row['Step_Number']}, Material={row['Material_Name']}"
-            )
+        invalid = df["Step_Number"].isna() | (pd.to_numeric(df["Step_Number"], errors="coerce") <= 0)
+        if invalid.any():
+            errors.append(f"{table_name}: some Step_Number values are missing or not positive")
 
     return errors
 
 
 def run_all_validations(routes_df: pd.DataFrame, steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> list[str]:
     """
-    Run all validation checks and return a single list of errors.
+    Run all validation checks used before calculating the route metrics.
+
+    Returns one list containing all detected problems. If the list is empty,
+    the workbook passed all validation checks.
     """
     errors = []
-    errors.extend(validate_route_ids(routes_df, steps_df, materials_df))
-    errors.extend(validate_step_links(steps_df, materials_df))
-    errors.extend(validate_metric_inputs(materials_df))
+
+    errors.extend(
+        validate_required_columns(
+            routes_df,
+            [
+                "Drug_Name",
+                "Route_ID",
+                "Route_Name",
+                "Target_Product",
+            ],
+            "Route_Summary",
+        )
+    )
+
+    errors.extend(
+        validate_required_columns(
+            steps_df,
+            [
+                "Drug_Name",
+                "Route_ID",
+                "Step_Number",
+                "Desired_Product_Name",
+                "Final_Step_YN",
+            ],
+            "Step_Data",
+        )
+    )
+
+    errors.extend(
+        validate_required_columns(
+            materials_df,
+            [
+                "Drug_Name",
+                "Route_ID",
+                "Step_Number",
+                "Material_Name",
+                "Role",
+            ],
+            "Materials",
+        )
+    )
+
+    errors.extend(validate_no_missing_route_ids(routes_df, steps_df, materials_df))
+    errors.extend(validate_step_links(routes_df, steps_df))
+    errors.extend(validate_material_links(routes_df, materials_df))
+    errors.extend(validate_final_step_per_route(steps_df))
+    errors.extend(validate_positive_step_numbers(steps_df, materials_df))
+
     return errors

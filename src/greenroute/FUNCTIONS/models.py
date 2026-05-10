@@ -4,6 +4,9 @@ from typing import Optional
 
 @dataclass
 class Material:
+    """
+    Store the information for one material used in one step of a route.
+    """
     drug_name: str
     route_id: str
     step_number: int
@@ -22,6 +25,9 @@ class Material:
 
 @dataclass
 class Step:
+    """
+    Store the information for one synthetic step in a route.
+    """
     drug_name: str
     route_id: str
     step_number: int
@@ -37,6 +43,13 @@ class Step:
 
 @dataclass
 class Route:
+    """
+    Store all information linked to one synthesis route.
+
+    A Route object contains the route-level summary values together with the
+    list of its steps and materials. It is the main object passed to the
+    metric functions.
+    """
     drug_name: str
     route_id: str
     route_name: str

@@ -3,6 +3,9 @@ from models import Route, Step, Material
 
 
 def build_material(row: pd.Series) -> Material:
+    """
+    Create a Material object from one row of the Materials sheet.
+    """
     return Material(
         drug_name=row["Drug_Name"],
         route_id=row["Route_ID"],
@@ -22,6 +25,9 @@ def build_material(row: pd.Series) -> Material:
 
 
 def build_step(row: pd.Series) -> Step:
+    """
+    Create a Step object from one row of the Step_Data sheet.
+    """
     return Step(
         drug_name=row["Drug_Name"],
         route_id=row["Route_ID"],
@@ -38,6 +44,13 @@ def build_step(row: pd.Series) -> Step:
 
 
 def build_route(route_id: str, routes_df: pd.DataFrame, steps_df: pd.DataFrame, materials_df: pd.DataFrame) -> Route:
+    """
+    Build one complete Route object from the three cleaned data tables.
+
+    This function selects the route summary row, all matching steps, and all
+    matching materials for one route ID, then combines them into a single
+    Route object that can be passed to the metric functions.
+    """
     route_row = routes_df.loc[routes_df["Route_ID"] == route_id].iloc[0]
 
     route_steps_df = steps_df.loc[steps_df["Route_ID"] == route_id].sort_values("Step_Number")
@@ -57,7 +70,6 @@ def build_route(route_id: str, routes_df: pd.DataFrame, steps_df: pd.DataFrame, 
         number_of_steps=int(route_row["Number_of_Steps"]) if pd.notna(route_row["Number_of_Steps"]) else None,
         overall_yield_percent=route_row["Overall_Yield_%"] if pd.notna(route_row["Overall_Yield_%"]) else None,
         final_product_mass_isolated_g=route_row["Final_Product_Mass_Isolated_g"] if pd.notna(route_row["Final_Product_Mass_Isolated_g"]) else None,
-
         app_atom_economy_percent=route_row["App_Atom_Economy_%"] if "App_Atom_Economy_%" in route_row.index and pd.notna(route_row["App_Atom_Economy_%"]) else None,
         app_pmi=route_row["App_PMI"] if "App_PMI" in route_row.index and pd.notna(route_row["App_PMI"]) else None,
         app_e_factor=route_row["App_E_factor"] if "App_E_factor" in route_row.index and pd.notna(route_row["App_E_factor"]) else None,
@@ -67,7 +79,6 @@ def build_route(route_id: str, routes_df: pd.DataFrame, steps_df: pd.DataFrame, 
         calculation_basis=route_row["Calculation_Basis"] if "Calculation_Basis" in route_row.index and pd.notna(route_row["Calculation_Basis"]) else None,
         data_confidence=route_row["Data_Confidence"] if "Data_Confidence" in route_row.index and pd.notna(route_row["Data_Confidence"]) else None,
         app_notes=route_row["App_Notes"] if "App_Notes" in route_row.index and pd.notna(route_row["App_Notes"]) else None,
-
         source_or_reference=route_row["Source_or_Reference"] if "Source_or_Reference" in route_row.index and pd.notna(route_row["Source_or_Reference"]) else None,
         notes=route_row["Notes"] if "Notes" in route_row.index and pd.notna(route_row["Notes"]) else None,
         steps=steps,

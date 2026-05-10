@@ -1,87 +1,98 @@
 import pandas as pd
 
 
-def yn_to_bool(value):
-    if pd.isna(value):
-        return False
-    value = str(value).strip().upper()
-    return value == "Y"
+def _clean_yes_no_column(series: pd.Series) -> pd.Series:
+    """
+    Convert a yes/no style column into True and False values.
 
+    The function accepts common text variations such as Y, Yes, N, No,
+    True, and False. Empty values are treated as False.
+    """
+    mapping = {
+        "y": True,
+        "yes": True,
+        "true": True,
+        "1": True,
+        "n": False,
+        "no": False,
+        "false": False,
+        "0": False,
+        "": False,
+    }
 
-def clean_string_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    for col in df.columns:
-        if df[col].dtype == "object":
-            df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
-    return df
+    return (
+        series.fillna("")
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .map(mapping)
+        .fillna(False)
+    )
 
 
 def clean_routes_df(routes_df: pd.DataFrame) -> pd.DataFrame:
-    routes_df = clean_string_columns(routes_df)
+    """
+    Clean the Route_Summary table.
 
-    numeric_cols = [
-        "Final_Product_MW",
-        "Number_of_Steps",
-        "Overall_Yield_%",
-        "Final_Product_Mass_Isolated_g",
-        "App_Atom_Economy_%",
-        "App_PMI",
-        "App_E_factor",
-        "App_Overall_Yield_%",
-        "App_Number_of_Steps",
-    ]
+    This mainly removes extra spaces from text columns and standardizes
+    empty cells so the route information is easier to use later in the
+    pipeline.
+    """
+    routes_df = routes_df.copy()
 
-    for col in numeric_cols:
-        if col in routes_df.columns:
-            routes_df[col] = pd.to_numeric(routes_df[col], errors="coerce")
+    text_columns = routes_df.select_dtypes(include="object").columns
+    for col in text_columns:
+        routes_df[col] = routes_df[col].apply(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
 
     return routes_df
 
 
 def clean_steps_df(steps_df: pd.DataFrame) -> pd.DataFrame:
-    steps_df = clean_string_columns(steps_df)
+    """
+    Clean the Step_Data table.
 
-    numeric_cols = [
-        "Step_Number",
-        "Desired_Product_MW",
-        "Desired_Product_Stoich_Coeff",
-        "Step_Yield_%",
-        "Product_Mass_Isolated_g",
-    ]
+    Text columns are stripped, and the final-step column is converted into
+    a proper boolean column.
+    """
+    steps_df = steps_df.copy()
 
-    for col in numeric_cols:
-        if col in steps_df.columns:
-            steps_df[col] = pd.to_numeric(steps_df[col], errors="coerce")
+    text_columns = steps_df.select_dtypes(include="object").columns
+    for col in text_columns:
+        steps_df[col] = steps_df[col].apply(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
 
     if "Final_Step_YN" in steps_df.columns:
-        steps_df["Final_Step_YN"] = steps_df["Final_Step_YN"].apply(yn_to_bool)
+        steps_df["Final_Step_YN"] = _clean_yes_no_column(steps_df["Final_Step_YN"])
 
     return steps_df
 
 
 def clean_materials_df(materials_df: pd.DataFrame) -> pd.DataFrame:
-    materials_df = clean_string_columns(materials_df)
+    """
+    Clean the Materials table.
 
-    numeric_cols = [
-        "Step_Number",
-        "Amount_g",
-        "Molar_Mass",
-        "Stoich_Coeff",
-        "Hazard_Score",
-    ]
+    Text columns are stripped, and the inclusion columns used for atom
+    economy, PMI, and E-factor are converted into boolean values.
+    """
+    materials_df = materials_df.copy()
 
-    for col in numeric_cols:
-        if col in materials_df.columns:
-            materials_df[col] = pd.to_numeric(materials_df[col], errors="coerce")
+    text_columns = materials_df.select_dtypes(include="object").columns
+    for col in text_columns:
+        materials_df[col] = materials_df[col].apply(
+            lambda x: x.strip() if isinstance(x, str) else x
+        )
 
-    yn_cols = [
+    yes_no_columns = [
         "Include_in_Atom_Economy",
         "Include_in_PMI",
         "Include_in_Efactor",
     ]
 
-    for col in yn_cols:
+    for col in yes_no_columns:
         if col in materials_df.columns:
-            materials_df[col] = materials_df[col].apply(yn_to_bool)
+            materials_df[col] = _clean_yes_no_column(materials_df[col])
 
     return materials_df
