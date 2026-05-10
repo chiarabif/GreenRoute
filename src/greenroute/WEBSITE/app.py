@@ -707,7 +707,7 @@ if selected:
     if pmi_status != "ok":
         st.markdown(
             """<div style="background-color:#EEF5E9; color:#4A7040; border-radius:8px; padding:12px 18px; font-size:15px; margin-bottom:8px;">
-            Values shown for this pathway are taken from literature. This is an older reaction for which detailed step-by-step data was unavailable for direct calculation.</div>""",
+            Values shown for this pathway are taken from literature as detailed step-by-step data was unavailable for direct calculation.</div>""",
             unsafe_allow_html=True,
         )
 
