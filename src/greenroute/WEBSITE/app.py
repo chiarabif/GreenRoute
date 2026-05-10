@@ -771,6 +771,10 @@ if selected:
         display_profile = "Highly recoverable"
         badge_color = "#E4EDE0"
         text_color = "#2D4A22"
+    elif "hazardous" in profile_lower:
+        display_profile = "Hazardous solvents"
+        badge_color = "#FFEBEE"
+        text_color = "#B71C1C"
     elif "problematic" in profile_lower:
         display_profile = "Polluting / difficult to recover"
         badge_color = "#FFEBEE"
