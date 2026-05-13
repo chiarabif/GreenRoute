@@ -242,7 +242,6 @@ def get_reaction_scheme_path(route_name: str):
         "jollife": "ibuprofen_flow.png",
         "gerogiorgis": "ibuprofen_flow.png",
         "gerogiorg": "ibuprofen_flow.png",
-        "Jollife-Gerogiorgis":"ibuprofen_flow.png",
 
         "pfizer": "sertraline_pfizer.png",
         "marx": "sertraline_marx.png",
