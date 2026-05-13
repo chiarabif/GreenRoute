@@ -346,6 +346,29 @@ def render_molecule_card(molecule: str) -> str:
     return dedent(html).strip()
 
 
+def highlight_best_worst(series, higher_is_better=True):
+    styles = [""] * len(series)
+    valid = series.dropna()
+
+    if valid.empty:
+        return styles
+
+    best_value = valid.max() if higher_is_better else valid.min()
+    worst_value = valid.min() if higher_is_better else valid.max()
+
+    for i, value in enumerate(series):
+        if pd.isna(value):
+            styles[i] = "background-color: #F5F5F5; color: #9E9E9E;"
+        elif value == best_value:
+            styles[i] = "background-color: #E4EDE0; color: #2D4A22; font-weight: 700;"
+        elif value == worst_value and best_value != worst_value:
+            styles[i] = "background-color: #FFF3E0; color: #E65100; font-weight: 600;"
+        else:
+            styles[i] = ""
+
+    return styles
+
+
 # Molecule selection
 st.markdown("<div class='section-title'>Choose a molecule</div>", unsafe_allow_html=True)
 
@@ -518,28 +541,6 @@ if selected:
     for col in numeric_cols:
         if col in table_df.columns:
             table_df[col] = pd.to_numeric(table_df[col], errors="coerce")
-
-    def highlight_best_worst(series, higher_is_better=True):
-        styles = [""] * len(series)
-        valid = series.dropna()
-
-        if valid.empty:
-            return styles
-
-        best_value = valid.max() if higher_is_better else valid.min()
-        worst_value = valid.min() if higher_is_better else valid.max()
-
-        for i, value in enumerate(series):
-            if pd.isna(value):
-                styles[i] = "background-color: #F5F5F5; color: #9E9E9E;"
-            elif value == best_value:
-                styles[i] = "background-color: #E4EDE0; color: #2D4A22; font-weight: 700;"
-            elif value == worst_value and best_value != worst_value:
-                styles[i] = "background-color: #FFF3E0; color: #E65100; font-weight: 600;"
-            else:
-                styles[i] = ""
-
-        return styles
 
     styled_table = table_df.style.format(
         {
