@@ -14,11 +14,11 @@ finally:
     del version, PackageNotFoundError
 
 # ── Auto-import all functions ──────────────────────────────────────────────────
-from greenroute.FUNCTIONS.builder   import *
+from greenroute.FUNCTIONS.models    import *
+from greenroute.FUNCTIONS.builder   import build_route, build_step, build_material
 from greenroute.FUNCTIONS.cleaner   import *
 from greenroute.FUNCTIONS.loader    import *
 from greenroute.FUNCTIONS.main      import *
 from greenroute.FUNCTIONS.metrics   import *
-from greenroute.FUNCTIONS.models    import *
 from greenroute.FUNCTIONS.validator import *
 from greenroute.SMILES.SMILES       import *
